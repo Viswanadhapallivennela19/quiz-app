@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Quiz App</title>
+  <!-- SheetJS Library for Excel export -->
+  <script src="https://unpkg.com/xlsx/dist/xlsx.full.min.js"></script>
+  <style>
+    /* General Styles */
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background-color: #f4f4f4;
+    }
+
+    /* Header Styles */
+    .header {
+      background-color: #2575fc;
+      color: white;
+      padding: 20px;
+      text-align: center;
+      font-size: 24px;
+    }
+
+    /* Header Navigation */
+    .header nav {
+      margin-top: 10px;
+    }
+
+    .header nav a {
+      margin: 0 15px;
+      color: white;
+      text-decoration: none;
+      font-size: 18px;
+    }
+
+    .header nav a:hover {
+      text-decoration: underline;
+    }
+
+    /* Main Content Styles */
+    .main-content {
+      padding: 20px;
+    }
+
+    /* Score Table */
+    .score-table {
+      margin-top: 30px;
+      width: 100%;
+      border-collapse: collapse;
+    }
+
+    .score-table th, .score-table td {
+      padding: 12px;
+      text-align: center;
+      border: 1px solid #ddd;
+    }
+
+    .score-table th {
+      background-color: #2575fc;
+      color: white;
+    }
+
+    /* Footer Styles */
+    .footer {
+      background-color: #2575fc;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      position: fixed;
+      width: 100%;
+      bottom: 0;
+    }
+
+    /* Responsive Styles */
+    @media (max-width: 768px) {
+      .header {
+        font-size: 20px;
+      }
+
+      .score-table th, .score-table td {
+        font-size: 14px;
+        padding: 10px;
+      }
+
+      .score-table {
+        margin-top: 20px;
+      }
+    }
+
+    /* Very small screens */
+    @media (max-width: 480px) {
+      .header {
+        font-size: 18px;
+      }
+
+      .score-table th, .score-table td {
+        font-size: 12px;
+        padding: 8px;
+      }
+
+      .score-table {
+        margin-top: 10px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Header -->
+  <div class="header">
+    Quiz Application
+    <nav>
+      <a href="admin.html">Quiz Form</a>
+      <a href="admin-questions.html">Quiz Questions</a>
+    </nav>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+    <!-- Score Table -->
+    <div id="result">
+      <h2>Your Score</h2>
+      <!-- Button to export scores to Excel -->
+      <button onclick="exportToExcel()" style="padding: 10px 20px; background-color: #2575fc; color: white; border: none; cursor: pointer;">Export to Excel</button>
+      <table class="score-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Score</th>
+          </tr>
+        </thead>
+        <tbody id="scoreTableBody">
+          <!-- Score results will be inserted here -->
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="footer">
+    &copy; 2024 Quiz Application
+  </div>
+
+  <script>
+    // Firebase Realtime Database URL with the .json extension
+    const databaseUrl = "https://quiz-score-7adb7-default-rtdb.firebaseio.com/scores.json";
+
+    // Fetch data from Firebase and display in table
+    async function fetchScores() {
+      try {
+        const response = await fetch(databaseUrl);
+        const data = await response.json();
+
+        if (data) {
+          const scoreTableBody = document.getElementById('scoreTableBody');
+          // Loop through the data and append rows to the table
+          Object.keys(data).forEach(key => {
+            const scoreData = data[key];
+            const row = document.createElement('tr');
+            row.innerHTML = `
+              <td>${scoreData.name}</td>
+              <td>${scoreData.score}</td>
+            `;
+            scoreTableBody.appendChild(row);
+          });
+        }
+      } catch (error) {
+        console.error('Error fetching scores:', error);
+      }
+    }
+
+    // Call the fetchScores function on page load
+    window.onload = fetchScores;
+
+    // Export the score table to an Excel file
+    function exportToExcel() {
+  const table = document.querySelector('.score-table');
+  if (!table) {
+    console.error('Table not found');
+    return;
+  }
+  
+  console.log('Exporting table to Excel...');
+  const wb = XLSX.utils.table_to_book(table, { sheet: "Scores" });
+  const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'binary' });
+
+  function s2ab(s) {
+    const buf = new ArrayBuffer(s.length);
+    const view = new Uint8Array(buf);
+    for (let i = 0; i < s.length; i++) view[i] = s.charCodeAt(i) & 0xff;
+    return buf;
+  }
+
+  const blob = new Blob([s2ab(wbout)], { type: "application/octet-stream" });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'quiz_scores.xlsx';
+  link.click();
+}
+
+  </script>
+
+</body>
+</html>

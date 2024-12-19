@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .question {
+            margin-bottom: 20px;
+        }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: #2575fc;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        button:hover {
+            background-color: #6a11cb;
+        }
+
+        .result {
+            text-align: center;
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Quiz App</h1>
+        <p id="answer-below-ques">Answer the questions below:</p>
+        <div id="quiz"></div>
+        <button id="submitBtn">Submit Quiz</button>
+        <div id="result" class="result"></div>
+    </div>
+      
+    <script>
+
+  
+
+let userName=''
+
+        window.history.pushState(null, '', window.location.href);
+        window.onpopstate = function() {
+            window.history.pushState(null, '', window.location.href); // Prevent navigating back to the login/signup page
+        };
+
+        const quizContainer = document.getElementById('quiz');
+        const submitBtn = document.getElementById('submitBtn');
+        const resultDiv = document.getElementById('result');
+        let warnings = 0;
+        let hasSubmitted = false;
+        let questionsData = null; // Global variable to store fetched questions
+
+        // Function to fetch questions from Firebase
+        async function fetchQuestions() {
+            if (questionsData) return; // Prevent multiple fetches
+
+            try {
+                const response = await fetch('https://quiz-6691d-default-rtdb.firebaseio.com/questions.json');
+                const data = await response.json();
+
+                // Check if data exists
+                if (!data) {
+                    quizContainer.innerHTML = '<p>No questions available.</p>';
+                    return;
+                }
+
+                questionsData = data; // Store fetched data globally
+                renderQuestions(); // Render questions after fetching
+            } catch (error) {
+                console.error('Error fetching questions:', error);
+                quizContainer.innerHTML = '<p>Error loading questions. Please try again later.</p>';
+            }
+        }
+
+        // Function to render questions
+        function renderQuestions() {
+            if (!questionsData) return;
+
+            Object.keys(questionsData).forEach((key, index) => {
+                const questionObj = questionsData[key];
+                const questionDiv = document.createElement('div');
+                questionDiv.classList.add('question');
+
+                // Create question text
+                const questionText = document.createElement('p');
+                questionText.textContent = `${index + 1}. ${questionObj.question}`;
+                questionDiv.appendChild(questionText);
+
+                // Create options
+                questionObj.options.forEach((option) => {
+                    const optionLabel = document.createElement('label');
+                    const optionInput = document.createElement('input');
+                    optionInput.type = 'radio';
+                    optionInput.name = `q${index + 1}`;
+                    optionInput.value = option;
+                    optionLabel.appendChild(optionInput);
+                    optionLabel.appendChild(document.createTextNode(option));
+                    questionDiv.appendChild(optionLabel);
+                    questionDiv.appendChild(document.createElement('br'));
+                });
+
+                quizContainer.appendChild(questionDiv);
+            });
+        }
+
+   // Global variable to track whether the quiz has been submitted
+ 
+// Function to submit the quiz, calculate the score, and store in Firebase
+async function submitQuiz() {
+    if (!userName) {
+        userName = prompt("Please enter your Full Name:");
+    }
+    if (hasSubmitted) return; // Prevent multiple submissions
+    hasSubmitted = true;
+    
+
+    const questions = quizContainer.getElementsByClassName('question');
+    let score = 0;
+
+    // Iterate over each question and check the selected answers
+    Object.keys(questionsData).forEach((key, index) => {
+        const questionDiv = questions[index];
+        const selectedOption = questionDiv.querySelector('input[type="radio"]:checked');
+        const correctAnswer = questionsData[key].answer; // Correct answer from stored data
+
+        if (selectedOption && selectedOption.value === correctAnswer) {
+            score++;
+        }
+    });
+
+     
+    // If the user enters a name, store the score in Firebase using async/await
+    if (userName) {
+        const userScoreData = {
+            name: userName,  // Store the user's name
+            score: score     // Store the score
+        };
+
+        const databaseUrl = "https://quiz-score-7adb7-default-rtdb.firebaseio.com/scores.json"; // Firebase Realtime Database URL
+
+        try {
+        // First, GET the data to check if the user already exists
+        const response = await fetch(databaseUrl);
+        const data = await response.json();  // Get all existing records
+
+        // Check if the user data already exists
+        const userExists = Object.values(data).some(user => user.name === userScoreData.name);
+
+        if (userExists) {
+            window.alert(`User ${userScoreData.name} already exists. Score will not Considered .`);
+        } else {
+            // Send data using the fetch API if user doesn't exist
+            const postResponse = await fetch(databaseUrl, {
+                method: 'POST',  // Use POST to add data
+                headers: {
+                    'Content-Type': 'application/json',  // Sending JSON data
+                },
+                body: JSON.stringify(userScoreData),  // Convert JavaScript object to JSON
+            });
+
+            if (postResponse.ok) {
+                const postData = await postResponse.json();  // Parse the response as JSON
+                console.log("Score saved successfully:", postData);  // Handle successful response
+            } else {
+                throw new Error("Error saving score: " + postResponse.statusText); // Handle non-200 responses
+            }
+        }
+    } catch (error) {
+        console.error("Error:", error);  // Handle error
+    }
+    }
+
+    // Hide the quiz and show the result
+    quizContainer.innerHTML = ''; // Clear the quiz questions
+    submitBtn.style.display = 'none'; // Hide the submit button
+    document.getElementById('answer-below-ques').textContent=''
+    resultDiv.textContent = `${userName}! You scored ${score} out of ${Object.keys(questionsData).length}`; // Show the result
+}
+
+// Tab switch warning handler
+function handleTabSwitch() {
+    if (hasSubmitted) return;
+
+    warnings++;
+    if (warnings >= 4) {
+        
+        alert('You switched tabs too many times. The quiz is being submitted automatically.');
+        submitQuiz(); // Automatically submit the quiz after 4 warnings
+    } else {
+        alert(`Warning: You have switched tabs ${warnings} time(s). After 4 warnings, the quiz will be submitted automatically.`);
+        if (warnings === 3 && !userName) { // Check if the userName is still empty
+            userName = prompt("Please enter your name:");
+        }
+    }
+}
+
+// Add event listeners for visibility change
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        handleTabSwitch(); // Handle tab switching
+    }
+});
+
+
+        // Fetch questions on page load
+        fetchQuestions();
+
+        // Attach event listener to the submit button
+        submitBtn.addEventListener('click', submitQuiz);
+    </script>
+</body>
+</html>

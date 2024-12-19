@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quiz Management</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f4f4f4;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: auto;
+            background: #fff;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        h1 {
+            text-align: center;
+        }
+
+        .question {
+            border-bottom: 1px solid #ddd;
+            padding: 10px 0;
+        }
+
+        .question:last-child {
+            border-bottom: none;
+        }
+
+        .actions {
+            margin-top: 10px;
+        }
+
+        button {
+            padding: 5px 10px;
+            margin-right: 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .edit-btn {
+            background-color: #2575fc;
+            color: white;
+        }
+
+        .delete-btn {
+            background-color: #e74c3c;
+            color: white;
+        }
+
+        .edit-btn:hover {
+            background-color: #6a11cb;
+        }
+
+        .delete-btn:hover {
+            background-color: #c0392b;
+        }
+
+        form {
+            margin-top: 20px;
+        }
+
+        form input,
+        form button {
+            display: block;
+            width: 100%;
+            margin-bottom: 10px;
+            padding: 10px;
+            font-size: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Quiz Management</h1>
+        <div id="quizContainer">
+            <p>Loading questions...</p>
+        </div>
+    </div>
+
+    <script>
+        const firebaseUrl = 'https://quiz-6691d-default-rtdb.firebaseio.com/questions.json';
+        const quizContainer = document.getElementById('quizContainer');
+
+        // Function to fetch and display questions
+        async function fetchQuestions() {
+            try {
+                const response = await fetch(firebaseUrl);
+                const data = await response.json();
+
+                if (!data) {
+                    quizContainer.innerHTML = '<p>No questions available.</p>';
+                    return;
+                }
+
+                quizContainer.innerHTML = ''; // Clear container
+
+                Object.keys(data).forEach((key, index) => {
+                    const question = data[key];
+
+                    const questionDiv = document.createElement('div');
+                    questionDiv.classList.add('question');
+
+                    questionDiv.innerHTML = `
+                        <p><strong>${index + 1}. ${question.question}</strong></p>
+                        <ul>
+                            ${question.options.map(opt => `<li>${opt}</li>`).join('')}
+                        </ul>
+                        <p><strong>Answer:</strong> ${question.answer}</p>
+                        <div class="actions">
+                            <button class="edit-btn" onclick="editQuestion('${key}')">Edit</button>
+                            <button class="delete-btn" onclick="deleteQuestion('${key}')">Delete</button>
+                        </div>
+                    `;
+
+                    quizContainer.appendChild(questionDiv);
+                });
+            } catch (error) {
+                console.error('Error fetching questions:', error);
+                quizContainer.innerHTML = '<p>Error loading questions. Please try again later.</p>';
+            }
+        }
+
+        // Function to delete a question
+        async function deleteQuestion(key) {
+            const deleteUrl = `https://quiz-6691d-default-rtdb.firebaseio.com/questions/${key}.json`;
+
+            try {
+                const response = await fetch(deleteUrl, {
+                    method: 'DELETE',
+                });
+
+                if (response.ok) {
+                    alert('Question deleted successfully.');
+                    fetchQuestions(); // Refresh the questions
+                } else {
+                    alert('Failed to delete the question.');
+                }
+            } catch (error) {
+                console.error('Error deleting question:', error);
+            }
+        }
+
+        // Function to edit a question
+        async function editQuestion(key) {
+            const editUrl = `https://quiz-6691d-default-rtdb.firebaseio.com/questions/${key}.json`;
+
+            // Fetch the current question details
+            const response = await fetch(editUrl);
+            const questionData = await response.json();
+
+            if (!questionData) {
+                alert('Failed to fetch question details.');
+                return;
+            }
+
+            // Populate the form for editing
+            quizContainer.innerHTML = `
+                <h2>Edit Question</h2>
+                <form id="editForm">
+                    <input type="text" id="editQuestion" value="${questionData.question}" required>
+                    ${questionData.options
+                        .map(
+                            (opt, i) =>
+                                `<input type="text" id="editOption${i + 1}" value="${opt}" required>`
+                        )
+                        .join('')}
+                    <input type="text" id="editAnswer" value="${questionData.answer}" required>
+                    <button type="submit">Save Changes</button>
+                </form>
+            `;
+
+            // Save changes
+            document.getElementById('editForm').addEventListener('submit', async (event) => {
+                event.preventDefault();
+
+                const updatedQuestion = {
+                    question: document.getElementById('editQuestion').value,
+                    options: [
+                        document.getElementById('editOption1').value,
+                        document.getElementById('editOption2').value,
+                        document.getElementById('editOption3').value,
+                        document.getElementById('editOption4').value,
+                    ],
+                    answer: document.getElementById('editAnswer').value,
+                };
+
+                try {
+                    const response = await fetch(editUrl, {
+                        method: 'PUT',
+                        body: JSON.stringify(updatedQuestion),
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+
+                    if (response.ok) {
+                        alert('Question updated successfully.');
+                        fetchQuestions(); // Refresh the questions
+                    } else {
+                        alert('Failed to update the question.');
+                    }
+                } catch (error) {
+                    console.error('Error updating question:', error);
+                }
+            });
+        }
+
+        // Fetch questions on page load
+        fetchQuestions();
+    </script>
+</body>
+</html>
